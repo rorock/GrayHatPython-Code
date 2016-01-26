@@ -50,10 +50,12 @@ class debugger():
             
     def open_process(self,pid):
         h_process = kernel32.OpenProcess(PROCESS_ALL_ACCESS,False,pid)
+        print ("module handle is at 0x%08x" % (h_process))
         return h_process
     
     def attach(self,pid):
         self.h_process=self.open_process(pid)
+        print ( self.h_process )
         if kernel32.DebugActiveProcess(pid):
         
             self.debugger_active = True
@@ -103,33 +105,33 @@ class debugger():
     
     
     def read_process_memory(self,address,length):
-        
+        print ("In read_process_memory")
         data         = ""
         read_buf     = create_string_buffer(length)
-        count        = c_ulonglong(0)
+        count        = c_ulong(0)
         
         
         kernel32.ReadProcessMemory(self.h_process, address, read_buf, 5, byref(count))
         data    = read_buf.raw
-        
+        print (data)
         return data
     
     
     def write_process_memory(self,address,data):
-        
-        count  = c_ulonglong(0)
+        print ("In write process memory")
+        count  = c_ulong(0)
         length = len(data)
     
-        c_data = c_char_p(data[count.value:])
+        c_data = c_wchar_p(data[count.value:])
         print ("CDATA %s ",c_data)
 
-        if not kernel32.WriteProcessMemory(self.h_process, address, c_data.encode('ascii'), length, byref(count)):
+        if not kernel32.WriteProcessMemory(self.h_process, address, c_data, length, byref(count)):
             return False
         else:
             return True
     
     def bp_set(self,address):
-        print ("[*] Setting breakpoint at: 0x%016x" % address)
+        print ("[*] Setting breakpoint at: 0x%08x" % address)
         #if not self.breakpoints.has_key(address):
         if not address in self.breakpoints:
 
@@ -251,23 +253,25 @@ class debugger():
             
     def func_resolve(self,dll,function):
         print ("getting handle")
-        time.sleep(5)
-        handle = kernel32.GetModuleHandleA(dll)
+        handle = kernel32.GetModuleHandleW(dll)
         print ("%s module handle is at 0x%08x" % (dll, handle))
         error = kernel32.GetLastError()
         if error:
-            print ("There was an error in func_resolve::GetModuleHandleA(%s): %d" % (dll, error))
+            print ("There was an error in func_resolve::GetModuleHandleW(%s): %d" % (dll, error))
 
         print (handle)
         print ("Got handle")
-        time.sleep(5)
-        address = c_ulonglong(0)
+        address = c_ulong(0)
         print ("Getting address")
-        time.sleep(5)
-        address = kernel32.GetProcAddress(handle,function)
+        #time.sleep(5)
+        address = kernel32.GetProcAddress(handle,function.encode('ascii'))
+        error = kernel32.GetLastError()
+        if error:
+            print ("There was an error in func_resolve::GetProcAddress(%s): %d" % (dll, error))
+
+        print ("[*] Error: 0x%08x." % address)
         print ("Got address")
-        time.sleep(5)
-        print ("[*] Error: 0x%016x." % kernel32.GetProcAddress(handle,function))
+        #time.sleep(5)
         print ("in func_resolve after address")
         kernel32.CloseHandle(handle)
         print ("closing handle")
