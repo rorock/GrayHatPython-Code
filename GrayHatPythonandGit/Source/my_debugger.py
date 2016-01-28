@@ -79,6 +79,7 @@ class debugger():
           self.h_thread          = self.open_thread(debug_event.dwThreadId)
           #self.context           = self.get_thread_context(self.h_thread)
           self.context           = self.get_thread_context(h_thread=self.h_thread)
+        #  self.debug_event       = debug_event
         print("Event Code: %d Thread ID: %d " % (debug_event.dwDebugEventCode,debug_event.dwThreadId))
         if debug_event.dwDebugEventCode == EXCEPTION_DEBUG_EVENT:
             exception = debug_event.u.Exception.ExceptionRecord.ExceptionCode
@@ -86,22 +87,20 @@ class debugger():
             
             if exception == EXCEPTION_ACCESS_VIOLATION:
                 print ("Access Violation Detected.")
-            
             elif exception == EXCEPTION_BREAKPOINT:
                 continue_status = self.exception_handler_breakpoint()
-            
             elif exception == EXCEPTION_GUARD_PAGE:
                 print ("Guard Page Access Detected")
-                
             elif exception == EXCEPTION_SINGLE_STEP:
                 print ("Single Stepping")
                 
-                
+        kernel32.ContinueDebugEvent(debug_event.dwProcessId, debug_event.dwThreadId, continue_status)
+       
      
-        kernel32.ContinueDebugEvent( \
-                        debug_event.dwProcessId, \
-                        debug_event.dwThreadId, \
-                        continue_status)   
+        #kernel32.ContinueDebugEvent( \
+         #               debug_event.dwProcessId, \
+         #               debug_event.dwThreadId, \
+         #               continue_status)   
     
     
     def read_process_memory(self,address,length):
@@ -122,7 +121,8 @@ class debugger():
         count  = c_ulong(0)
         length = len(data)
     
-        c_data = c_wchar_p(data[count.value:])
+        #c_data = c_wchar_p()
+        c_data = create_string_buffer(data[count.value:])
         print ("CDATA %s ",c_data)
 
         if not kernel32.WriteProcessMemory(self.h_process, address, c_data, length, byref(count)):
@@ -143,8 +143,9 @@ class debugger():
             if original_byte != False:
                 
                 # write the INT3 opcode
-                if self.write_process_memory(address, "\xCC"):
-                    
+                if self.write_process_memory(address, b'\xCC'):
+                  
+    
                     # register the breakpoint in our internal list
                     self.breakpoints[address] = (original_byte)
                     return True
@@ -170,6 +171,8 @@ class debugger():
             print ("[*] Hit user defined breakpoint.")
             # this is where we handle the breakpoints we set 
             # first put the original byte back
+            
+            print (self.breakpoints[self.exception_address])        
             self.write_process_memory(self.exception_address, self.breakpoints[self.exception_address])
 
             # obtain a fresh context record, reset EIP back to the 
@@ -254,7 +257,7 @@ class debugger():
     def func_resolve(self,dll,function):
         print ("getting handle")
         handle = kernel32.GetModuleHandleW(dll)
-        print ("%s module handle is at 0x%08x" % (dll, handle))
+        print ("%s module handle for function %s is at 0x%08x" % (dll,function,handle))
         error = kernel32.GetLastError()
         if error:
             print ("There was an error in func_resolve::GetModuleHandleW(%s): %d" % (dll, error))

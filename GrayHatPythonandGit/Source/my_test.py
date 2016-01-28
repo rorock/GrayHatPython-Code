@@ -5,11 +5,18 @@ debugger = my_debugger.debugger()
 pid = input("Enter the PID of the process to attach to: ")
 
 #debugger.load("C:\\WINDOWS\\system32\\calc.exe")
+#debugger.load("C:\\users\\rortegon\\workspace\\Gray Hat Python\\src\\printf_loop.py")
 print ("before attach")
 debugger.attach(int(pid))
 print ("after attach")
-printf_address = debugger.func_resolve("msvcr100.dll","printf")
-print ("[*] Address of printf: 0x%016x" % printf_address)
+printf_address = debugger.func_resolve("msvcrt.dll","printf")
+print ("[*] Address of printf: 0x%08x" % printf_address)
+
+#list = debugger.enumerate_threads()
+#for thread in list:
+#    thread_context = debugger.get_thread_context(thread)
+#    print ("Dumping registers for thread ID: 0x%08x" %thread)
+
 
 debugger.bp_set(printf_address)
 debugger.run()
