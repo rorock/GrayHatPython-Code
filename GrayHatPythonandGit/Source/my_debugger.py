@@ -144,7 +144,7 @@ class debugger():
                 
                 # write the INT3 opcode
                 if self.write_process_memory(address, b'\xCC'):
-                  
+                  #print comment
     
                     # register the breakpoint in our internal list
                     self.breakpoints[address] = (original_byte)
