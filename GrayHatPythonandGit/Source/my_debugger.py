@@ -2,6 +2,8 @@ from ctypes import *
 from my_debugger_defines import *
 from unittest.mock import FunctionTypes
 import time
+#import sys
+
 
 kernel32 = windll.kernel32
 
@@ -14,10 +16,20 @@ class debugger():
         self.debugger_active =     False
         self.h_thread = None
         self.context = None
-      #  self.exception = None
-      #  self.exception_address = None
+     #   self.exception = None
+     #   self.exception_address = None
         self.breakpoints = {}
         self.first_breakpoint = True
+        self.hardware_breakpoints={}
+        
+        
+      #  system_info = SYSTEM_INFO()
+      #  kernel32.GetSystemInfo(byref(system_info))
+      #  self.page_size = system_info.dwPageSize
+        
+        # TODO: test
+      #  self.guarded_pages      = []
+      #  self.memory_breakpoints = {}
     
     def load(self,path_to_exe):
         creation_flags = DEBUG_PROCESS
@@ -93,6 +105,7 @@ class debugger():
                 print ("Guard Page Access Detected")
             elif exception == EXCEPTION_SINGLE_STEP:
                 print ("Single Stepping")
+                self.exception_handler_single_step()
                 
         kernel32.ContinueDebugEvent(debug_event.dwProcessId, debug_event.dwThreadId, continue_status)
        
@@ -144,7 +157,7 @@ class debugger():
                 
                 # write the INT3 opcode
                 if self.write_process_memory(address, b'\xCC'):
-                  #print comment
+                  
     
                     # register the breakpoint in our internal list
                     self.breakpoints[address] = (original_byte)
@@ -334,3 +347,120 @@ class debugger():
         self.hardware_breakpoints[available] = (address,length,condition)
 
         return True
+    
+    
+   # def bp_set_hw(self, address, length, condition):
+        
+        # Check for a valid length value
+    #    if length not in (1, 2, 4):
+    #        return False
+    #    else:
+    #        length -= 1
+            
+        # Check for a valid condition
+    #    if condition not in (HW_ACCESS, HW_EXECUTE, HW_WRITE):
+    #        return False
+        
+        # Check for available slots
+    #    if not 0 in self.hardware_breakpoints:
+    #        available = 0
+    #    elif not 1 in self.hardware_breakpoints:
+    #        available = 1
+    #    elif not 2 in self.hardware_breakpoints:
+    #        available = 2
+    #    elif not 3 in self.hardware_breakpoints:
+    #        available = 3
+    #    else:
+    #        return False
+    #
+        # We want to set the debug register in every thread
+    #    for thread_id in self.enumerate_threads():
+    #        context = self.get_thread_context(thread_id=thread_id)
+
+            # Enable the appropriate flag in the DR7
+            # register to set the breakpoint
+    #        context.Dr7 |= 1 << (available * 2)
+
+            # Save the address of the breakpoint in the
+            # free register that we found
+    #        if   available == 0: context.Dr0 = address
+    #        elif available == 1: context.Dr1 = address
+    #        elif available == 2: context.Dr2 = address
+    #        elif available == 3: context.Dr3 = address
+
+            # Set the breakpoint condition
+    #        context.Dr7 |= condition << ((available * 4) + 16)
+
+            # Set the length
+    #        context.Dr7 |= length << ((available * 4) + 18)
+
+            # Set this threads context with the debug registers
+            # set
+    #        h_thread = self.open_thread(thread_id)
+    #        kernel32.SetThreadContext(h_thread,byref(context))
+
+        # update the internal hardware breakpoint array at the used slot index.
+    #    self.hardware_breakpoints[available] = (address,length,condition)
+
+    #    return True
+    
+    def bp_del_hw(self,slot):
+        
+        # Disable the breakpoint for all active threads
+        for thread_id in self.enumerate_threads():
+
+            context = self.get_thread_context(thread_id=thread_id)
+            
+            # Reset the flags to remove the breakpoint
+            context.Dr7 &= ~(1 << (slot * 2))
+
+            # Zero out the address
+            if   slot == 0: 
+                context.Dr0 = 0x00000000
+            elif slot == 1: 
+                context.Dr1 = 0x00000000
+            elif slot == 2: 
+                context.Dr2 = 0x00000000
+            elif slot == 3: 
+                context.Dr3 = 0x00000000
+
+            # Remove the condition flag
+            context.Dr7 &= ~(3 << ((slot * 4) + 16))
+
+            # Remove the length flag
+            context.Dr7 &= ~(3 << ((slot * 4) + 18))
+
+            # Reset the thread's context with the breakpoint removed
+            h_thread = self.open_thread(thread_id)
+            kernel32.SetThreadContext(h_thread,byref(context))
+            
+        # remove the breakpoint from the internal list.
+        del self.hardware_breakpoints[slot]
+
+        return True
+    
+    def exception_handler_single_step(self):
+        print ("[*] Exception address: 0x%08x" % self.exception_address)
+        # Comment from PyDbg:
+        # determine if this single step event occured in reaction to a hardware breakpoint and grab the hit breakpoint.
+        # according to the Intel docs, we should be able to check for the BS flag in Dr6. but it appears that windows
+        # isn't properly propogating that flag down to us.
+        if self.context.Dr6 & 0x1 and 0 in self.hardware_breakpoints:
+            slot = 0
+
+        elif self.context.Dr6 & 0x2 and 1 in self.hardware_breakpoints:
+            slot = 0
+        elif self.context.Dr6 & 0x4 and 2 in self.hardware_breakpoints:
+            slot = 0
+        elif self.context.Dr6 & 0x8 and 3 in self.hardware_breakpoints:
+            slot = 0
+        else:
+            # This wasn't an INT1 generated by a hw breakpoint
+            continue_status = DBG_EXCEPTION_NOT_HANDLED
+            
+        # Now let's remove the breakpoint from the list
+        if self.bp_del_hw(slot):
+            continue_status = DBG_CONTINUE
+
+        print ("[*] Hardware breakpoint removed.")
+        return continue_status

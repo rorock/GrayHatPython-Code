@@ -1,24 +1,32 @@
 import my_debugger
+from my_debugger_defines import HW_EXECUTE
 
 debugger = my_debugger.debugger()
-#print comment
+
 pid = input("Enter the PID of the process to attach to: ")
-    
+
 #debugger.load("C:\\WINDOWS\\system32\\calc.exe")
 #debugger.load("C:\\users\\rortegon\\workspace\\Gray Hat Python\\src\\printf_loop.py")
 print ("before attach")
 debugger.attach(int(pid))
 print ("after attach")
+
 printf_address = debugger.func_resolve("msvcrt.dll","printf")
 print ("[*] Address of printf: 0x%08x" % printf_address)
+
+
+
 
 #list = debugger.enumerate_threads()
 #for thread in list:
 #    thread_context = debugger.get_thread_context(thread)
 #    print ("Dumping registers for thread ID: 0x%08x" %thread)
 
+#this is for hardware  software breakpoints!!!!!!!!!!!!!!!
+#debugger.bp_set(printf_address)
 
-debugger.bp_set(printf_address)
+#this is for hardware breakpoints!!!!!!!!!!!11
+debugger.bp_set_hw(printf_address,1,HW_EXECUTE)
 debugger.run()
 
 
