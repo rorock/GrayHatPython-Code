@@ -26,7 +26,10 @@ print ("[*] Address of printf: 0x%08x" % printf_address)
 #debugger.bp_set(printf_address)
 
 #this is for hardware breakpoints!!!!!!!!!!!11
-debugger.bp_set_hw(printf_address,1,HW_EXECUTE)
+#debugger.bp_set_hw(printf_address,1,HW_EXECUTE)
+
+#this is for memory breakpoints
+debugger.bp_set_mem(printf_address,4)
 debugger.run()
 
 
